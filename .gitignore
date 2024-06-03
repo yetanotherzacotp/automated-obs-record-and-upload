@@ -1,2 +1,4 @@
 .env
 node_modules/*
+automated-obs-record-and-upload.exe
+automated-obs-record-and-upload.js

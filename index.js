@@ -1,7 +1,6 @@
 import OBSWebSocket, { EventSubscription } from 'obs-websocket-js'
 import _ from 'lodash'
 import 'dotenv/config'
-import open from 'open'
 import fs from 'fs'
 
 import config from './src/config.js'
@@ -15,38 +14,46 @@ import stopRecord from './src/obs/stopRecord.js'
 
 const TEN_SECONDS_IN_MS = 10000
 
-const obsClient = new OBSWebSocket()
-await connect(obsClient, config.obsWebsocketIp, config.obsWebsocketPort, config.obsWebsocketPassword)
+main().then(() => {})
 
-let isRecording
-let playerChamp
-let opponentChamp
-while(true) {
-  const playerName = await getPlayerName()
-  const isActiveGame = !_.isNil(playerName)
+async function main () {
+  const obsClient = new OBSWebSocket()
+  await connect(obsClient, config.obsWebsocketIp, config.obsWebsocketPort, config.obsWebsocketPassword)
 
-  if (!isActiveGame && !isRecording) {
-    console.log('No active game, waiting...')
-    await sleep(TEN_SECONDS_IN_MS)
-  } else if (!isActiveGame && isRecording){
-    const recordingPath = await stopRecord(obsClient, config.sceneName)
-    isRecording = false
-    await sleep(5000)
-    rename(recordingPath, playerChamp, opponentChamp)
-  } else if (isActiveGame && isRecording) {
-    // do nothing
-  } else if (isActiveGame && !isRecording) {
-    await startRecord(obsClient, config.sceneName)
-    isRecording = true
+  let isRecording
+  let playerChamp
+  let opponentChamp
+  while(true) {
+    const playerName = await getPlayerName()
+    const isActiveGame = !_.isNil(playerName)
 
-    const playerList = await getAllPlayers()
-    const player = _.find(playerList, ['riotId', playerName])
-    playerChamp = player.championName
+    if (!isActiveGame && !isRecording) {
+      console.log('No active game, waiting...')
+      await sleep(TEN_SECONDS_IN_MS)
+    } else if (!isActiveGame && isRecording){
+      const recordingPath = await stopRecord(obsClient, config.sceneName)
+      isRecording = false
+      await sleep(5000)
+      rename(recordingPath, playerChamp, opponentChamp)
+    } else if (isActiveGame && isRecording) {
+      // do nothing
+    } else if (isActiveGame && !isRecording) {
+      await startRecord(obsClient, config.sceneName)
+      isRecording = true
 
-    const opponent = _.find(playerList, (person) => {
-      return person.team !== player.team && person.position === player.position
-    })
-    opponentChamp = opponent.championName
+      const playerList = await getAllPlayers()
+      const player = _.find(playerList, ['riotId', playerName])
+      playerChamp = player.championName
+
+      const opponent = _.find(playerList, (person) => {
+        return person.team !== player.team && person.position === player.position
+      })
+      if  (opponent) {
+        opponentChamp = opponent.championName
+      } else {
+        opponentChamp = 'Unknown Champ'
+      }
+    }
   }
 }
 
