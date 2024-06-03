@@ -2,6 +2,8 @@
 
 This WIP set of open-source scripts will run OBS, record your League of Legends games, and then automatically upload them to youtube.
 
+Note I've only tested this on Windows 10, I do not know how this will behave on other OSs. Also note if you're running through the executable that Windows will likely complain about an unknown executable, as I have not created a cert for this application nor is it likely I'll bother too. You can bypass the Windows prompt to continue running the executable.
+
 ## Requirements
  - OBS > 28.0.0
  - OBS Websocket enabled
@@ -11,6 +13,7 @@ This WIP set of open-source scripts will run OBS, record your League of Legends 
 - [ ] Automatically upload to youtube
 
 <br/><br/>
+
 # Running the scripts
 ## Running through Node.js
 If you want to run through Node.js, follow their [installation instructions](https://nodejs.org/en/download/package-manager).
