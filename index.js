@@ -14,7 +14,13 @@ import stopRecord from './src/obs/stopRecord.js'
 
 const TEN_SECONDS_IN_MS = 10000
 
-main().then(() => {})
+main().then(() => {
+  process.exit()
+}).catch((error) => {
+  const errorString = `Something unexpectedly went wrong: ${error.toString()}`
+  fs.writeFileSync('errorlog.txt',errorString,{encoding:'utf8',flag:'w'})
+  process.exit()
+})
 
 async function main () {
   const obsClient = new OBSWebSocket()
