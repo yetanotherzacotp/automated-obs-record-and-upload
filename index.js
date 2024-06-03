@@ -35,7 +35,9 @@ async function main () {
     await sleep(TEN_SECONDS_IN_MS * 10)
     process.exit()
   }
+  console.log('Connecting to OBS websocket')
   await connect(obsClient, config.obsWebsocketIp, config.obsWebsocketPort, config.obsWebsocketPassword)
+  console.log('Connected. Beginning to wait for LoL game...')
 
   let isRecording
   let playerChamp
@@ -65,7 +67,7 @@ async function main () {
       const opponent = _.find(playerList, (person) => {
         return person.team !== player.team && person.position === player.position
       })
-      if  (opponent) {
+      if (opponent) {
         opponentChamp = opponent.championName
       } else {
         opponentChamp = 'Unknown Champ'
@@ -82,7 +84,7 @@ function sleep (timeoutLength) {
 
 function rename (originalFilePath, playerChamp,  opponentChamp) {
   const now = new Date()
-  const newRecordingName = `${now.getFullYear()}-${now.getMonth()}-${now.getDate()} ${playerChamp} vs ${opponentChamp}.mp4`
+  const newRecordingName = `${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()} ${playerChamp} vs ${opponentChamp}.mp4`
   console.log(newRecordingName)
 
   const pathToFile = _.chain(originalFilePath).split('/').dropRight(1).join('/').value()
