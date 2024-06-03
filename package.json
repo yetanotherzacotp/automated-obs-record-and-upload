@@ -1,0 +1,30 @@
+{
+  "name": "automated-obs-record-and-upload",
+  "version": "0.0.1",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "setup": "npm install && node setup.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yetanotherzacotp/automated-obs-record-and-upload.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/yetanotherzacotp/automated-obs-record-and-upload/issues"
+  },
+  "homepage": "https://github.com/yetanotherzacotp/automated-obs-record-and-upload#readme",
+  "type": "module",
+  "dependencies": {
+    "axios": "^1.7.2",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "lodash": "^4.17.21",
+    "obs-websocket-js": "^5.0.5",
+    "open": "^10.1.0",
+    "prompt-sync": "^4.2.0"
+  }
+}
