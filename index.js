@@ -18,6 +18,17 @@ main().then(() => {})
 
 async function main () {
   const obsClient = new OBSWebSocket()
+  if (
+    _.isNil(config.obsWebsocketIp) ||
+    _.isNil(config.obsWebsocketPort) ||
+    _.isNil(config.obsWebsocketPassword) ||
+    _.isNil(config.sceneName)
+  ) {
+    console.error('Failed to obtain required config. Please make sure you have made the .env file')
+    console.error('If using the executable follow the instructions in the README. If running through Node, then do npm run setup')
+    await sleep(TEN_SECONDS_IN_MS * 10)
+    process.exit()
+  }
   await connect(obsClient, config.obsWebsocketIp, config.obsWebsocketPort, config.obsWebsocketPassword)
 
   let isRecording
