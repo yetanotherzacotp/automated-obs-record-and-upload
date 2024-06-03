@@ -15,6 +15,8 @@ Note I've only tested this on Windows 10, I do not know how this will behave on 
 <br/><br/>
 
 # Running the scripts
+You can run the scripts either directly through Node.js or the executable.
+
 ## Running through Node.js
 If you want to run through Node.js, follow their [installation instructions](https://nodejs.org/en/download/package-manager).
 
