@@ -14,6 +14,7 @@ import connect from './src/obs/connect.js'
 import startRecord from './src/obs/startRecord.js'
 import stopRecord from './src/obs/stopRecord.js'
 
+const SCRIPT_VERSION = 'v0.0.3' // I wanted to just pull it from packagejson but no way I could get working played nicely with both entry points
 const TEN_SECONDS_IN_MS = 10000
 const ERROR_LOG_FILE_PATH = 'errorlog.txt'
 
@@ -31,6 +32,7 @@ init().then(() => {
 })
 
 async function init () {
+  console.log(`Running ${SCRIPT_VERSION} of automated-obs-record-and-upload script`)
   await checkOrCreateConfig()
   try {
     await main()
@@ -39,10 +41,9 @@ async function init () {
     const errorString = `${now.toString()} | Something unexpectedly went wrong: ${error.toString()}`
 
     if (errorCounter === 0) {
-      fs.writeFileSync(ERROR_LOG_FILE_PATH, errorString, {encoding: 'utf8', flag:'w' })
-    } else {
-      fs.appendFileSync(ERROR_LOG_FILE_PATH, errorString, {encoding: 'utf8', flag:'w' })
+      fs.writeFileSync(ERROR_LOG_FILE_PATH, `ERROR LOGS FOR version ${SCRIPT_VERSION}`, {encoding: 'utf8', flag:'w' })
     }
+    fs.appendFileSync(ERROR_LOG_FILE_PATH, errorString, {encoding: 'utf8', flag:'w' })
 
     throw error
   }
