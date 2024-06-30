@@ -125,7 +125,7 @@ function sleep (timeoutLength) {
 
 function rename (originalFilePath, playerChamp,  opponentChamp) {
   const now = new Date()
-  const newRecordingName = `${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()} ${playerChamp} vs ${opponentChamp}`
+  let newRecordingName = `${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()} ${playerChamp} vs ${opponentChamp}`
   const pathToFile = _.chain(originalFilePath).split('/').dropRight(1).join('/').value()
 
   // handle multiple of the same matchup in the same day
@@ -150,7 +150,7 @@ function incrementMatchupCounter (pathToFile, recordingName) {
   let recordingCounter = 2 // start at two, since we check if we have a conflict before calling this func
   while (true) {
     console.log(`Looping until a non-conflicting file name is found. Counter = ${recordingCounter}`)
-    if (checkFileExists(`${pathToFile}/${newRecordingName} Part ${recordingCounter}.mp4`)) {
+    if (checkFileExists(`${pathToFile}/${recordingName} Part ${recordingCounter}.mp4`)) {
       recordingCounter++
     } else {
       return ` Part ${recordingCounter}`
