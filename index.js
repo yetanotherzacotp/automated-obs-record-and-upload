@@ -18,7 +18,7 @@ const SCRIPT_VERSION = 'v0.0.4' // I wanted to just pull it from packagejson but
 const TEN_SECONDS_IN_MS = 10000
 const ERROR_LOG_FILE_PATH = 'errorlog.txt'
 
-const errorCounter = 0
+let errorCounter = 0
 
 init().then(() => {
   process.exit()
