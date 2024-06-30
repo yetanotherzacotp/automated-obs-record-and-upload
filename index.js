@@ -14,7 +14,7 @@ import connect from './src/obs/connect.js'
 import startRecord from './src/obs/startRecord.js'
 import stopRecord from './src/obs/stopRecord.js'
 
-const SCRIPT_VERSION = 'v0.0.3' // I wanted to just pull it from packagejson but no way I could get working played nicely with both entry points
+const SCRIPT_VERSION = 'v0.0.4' // I wanted to just pull it from packagejson but no way I could get working played nicely with both entry points
 const TEN_SECONDS_IN_MS = 10000
 const ERROR_LOG_FILE_PATH = 'errorlog.txt'
 
@@ -45,6 +45,7 @@ async function init () {
     }
     fs.appendFileSync(ERROR_LOG_FILE_PATH, errorString, {encoding: 'utf8', flag:'w' })
 
+    errorCounter++
     throw error
   }
 }
@@ -93,7 +94,7 @@ async function main () {
       const recordingPath = await stopRecord(obsClient, config.sceneName)
       isRecording = false
       await sleep(5000)
-      rename(recordingPath, playerChamp, opponentChamp)
+      await rename(recordingPath, playerChamp, opponentChamp)
     } else if (isActiveGame && isRecording) {
       console.log('Game is still going, continuing to record...')
       await sleep(TEN_SECONDS_IN_MS)
@@ -124,14 +125,14 @@ function sleep (timeoutLength) {
   });
 }
 
-function rename (originalFilePath, playerChamp,  opponentChamp) {
+async function rename (originalFilePath, playerChamp,  opponentChamp) {
   const now = new Date()
   let newRecordingName = `${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()} ${playerChamp} vs ${opponentChamp}`
   const pathToFile = _.chain(originalFilePath).split('/').dropRight(1).join('/').value()
 
   // handle multiple of the same matchup in the same day
-  if (checkFileExists(`${pathToFile}/${newRecordingName}.mp4`)) {
-    newRecordingName += incrementMatchupCounter()
+  if (await checkFileExists(`${pathToFile}/${newRecordingName}.mp4`)) {
+    newRecordingName += await incrementMatchupCounter(pathToFile, newRecordingName)
   }
 
   const newFilePath = `${pathToFile}/${newRecordingName}.mp4`
@@ -141,20 +142,23 @@ function rename (originalFilePath, playerChamp,  opponentChamp) {
   });
 }
 
-function checkFileExists(file) {
+async function checkFileExists(file) {
   return fs.promises.access(file, fs.constants.F_OK)
            .then(() => true)
            .catch(() => false)
 }
 
-function incrementMatchupCounter (pathToFile, recordingName) {
+async function incrementMatchupCounter (pathToFile, recordingName) {
   let recordingCounter = 2 // start at two, since we check if we have a conflict before calling this func
-  while (true) {
+  while (recordingCounter < 20) {
     console.log(`Looping until a non-conflicting file name is found. Counter = ${recordingCounter}`)
-    if (checkFileExists(`${pathToFile}/${recordingName} Part ${recordingCounter}.mp4`)) {
+    if (await checkFileExists(`${pathToFile}/${recordingName} Part ${recordingCounter}.mp4`)) {
       recordingCounter++
     } else {
       return ` Part ${recordingCounter}`
     }
   }
+
+  console.log('Something went wrong, exiting...')
+  throw new Error('Failed to find nonconflicting file name')
 }
