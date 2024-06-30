@@ -3,6 +3,8 @@ import _ from 'lodash'
 import 'dotenv/config'
 import fs from 'fs'
 
+import { firstTimeSetup } from './setup.js'
+
 import config from './src/config.js'
 
 import getPlayerName from './src/league/getPlayerName.js'
@@ -13,30 +15,66 @@ import startRecord from './src/obs/startRecord.js'
 import stopRecord from './src/obs/stopRecord.js'
 
 const TEN_SECONDS_IN_MS = 10000
+const ERROR_LOG_FILE_PATH = 'errorlog.txt'
 
-main().then(() => {
+const errorCounter = 0
+
+init().then(() => {
   process.exit()
-}).catch((error) => {
-  const errorString = `Something unexpectedly went wrong: ${error.toString()}`
-  fs.writeFileSync('errorlog.txt',errorString,{encoding:'utf8',flag:'w'})
-  process.exit()
+}).catch(() => {
+  if (errorCounter > 10) {
+    fs.appendFileSync(ERROR_LOG_FILE_PATH, 'Error count has exceeded 10, fully exiting to prevent infinite error loop',{encoding:'utf8',flag:'w'})
+    process.exit()
+  } else {
+    init() // try again
+  }
 })
 
-async function main () {
-  const obsClient = new OBSWebSocket()
+async function init () {
+  await checkOrCreateConfig()
+  try {
+    await main()
+  } catch (error) {
+    const now = new Date()
+    const errorString = `${now.toString()} | Something unexpectedly went wrong: ${error.toString()}`
+
+    if (errorCounter === 0) {
+      fs.writeFileSync(ERROR_LOG_FILE_PATH, errorString, {encoding: 'utf8', flag:'w' })
+    } else {
+      fs.appendFileSync(ERROR_LOG_FILE_PATH, errorString, {encoding: 'utf8', flag:'w' })
+    }
+
+    throw error
+  }
+}
+
+async function checkOrCreateConfig () {
   if (
     _.isNil(config.obsWebsocketIp) ||
     _.isNil(config.obsWebsocketPort) ||
     _.isNil(config.obsWebsocketPassword) ||
     _.isNil(config.sceneName)
   ) {
-    console.error('Failed to obtain required config. Please make sure you have made the .env file')
-    console.error('If using the executable follow the instructions in the README. If running through Node, then do npm run setup')
-    await sleep(TEN_SECONDS_IN_MS * 10)
+    console.error('Failed to obtain required config. Please go through the following prompts to create your .env file')
+    firstTimeSetup()
+    console.log('Script will auto exit. Please restart now that config is set')
+    await sleep(TEN_SECONDS_IN_MS)
     process.exit()
+  } else {
+    console.log('Config loaded!')
   }
+}
+
+async function main () {
+  const obsClient = new OBSWebSocket()
   console.log('Connecting to OBS websocket')
-  await connect(obsClient, config.obsWebsocketIp, config.obsWebsocketPort, config.obsWebsocketPassword)
+  try {
+    await connect(obsClient, config.obsWebsocketIp, config.obsWebsocketPort, config.obsWebsocketPassword)
+  } catch (error) {
+    console.warn('Waiting 30 seconds before retrying - please open OBS now...')
+    await sleep(TEN_SECONDS_IN_MS * 3)
+    throw error
+  }
   console.log('Connected. Beginning to wait for LoL game...')
 
   let isRecording
@@ -50,13 +88,16 @@ async function main () {
       console.log('No active game, waiting...')
       await sleep(TEN_SECONDS_IN_MS)
     } else if (!isActiveGame && isRecording){
+      console.log('Stopping recording, game has ended...')
       const recordingPath = await stopRecord(obsClient, config.sceneName)
       isRecording = false
       await sleep(5000)
       rename(recordingPath, playerChamp, opponentChamp)
     } else if (isActiveGame && isRecording) {
-      // do nothing
+      console.log('Game is still going, continuing to record...')
+      await sleep(TEN_SECONDS_IN_MS)
     } else if (isActiveGame && !isRecording) {
+      console.log('Detected game start, starting to record...')
       await startRecord(obsClient, config.sceneName)
       isRecording = true
 
@@ -84,13 +125,35 @@ function sleep (timeoutLength) {
 
 function rename (originalFilePath, playerChamp,  opponentChamp) {
   const now = new Date()
-  const newRecordingName = `${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()} ${playerChamp} vs ${opponentChamp}.mp4`
-  console.log(newRecordingName)
-
+  const newRecordingName = `${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()} ${playerChamp} vs ${opponentChamp}`
   const pathToFile = _.chain(originalFilePath).split('/').dropRight(1).join('/').value()
-  const newFilePath = `${pathToFile}/${newRecordingName}`
+
+  // handle multiple of the same matchup in the same day
+  if (checkFileExists(`${pathToFile}/${newRecordingName}.mp4`)) {
+    newRecordingName += incrementMatchupCounter()
+  }
+
+  const newFilePath = `${pathToFile}/${newRecordingName}.mp4`
   console.log(`renaming ${originalFilePath} to ${newFilePath}`)
   fs.renameSync(originalFilePath, newFilePath, function(err) {
     if ( err ) console.log('ERROR: ' + err);
-});
+  });
+}
+
+function checkFileExists(file) {
+  return fs.promises.access(file, fs.constants.F_OK)
+           .then(() => true)
+           .catch(() => false)
+}
+
+function incrementMatchupCounter (pathToFile, recordingName) {
+  let recordingCounter = 2 // start at two, since we check if we have a conflict before calling this func
+  while (true) {
+    console.log(`Looping until a non-conflicting file name is found. Counter = ${recordingCounter}`)
+    if (checkFileExists(`${pathToFile}/${newRecordingName} Part ${recordingCounter}.mp4`)) {
+      recordingCounter++
+    } else {
+      return ` Part ${recordingCounter}`
+    }
+  }
 }

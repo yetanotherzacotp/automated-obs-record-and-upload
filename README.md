@@ -36,7 +36,7 @@ npm start
 I've bundled the scripts into a single executable for those who don't know how or do not want to set up Node.js. You can find these executables in this project's [Releases](https://github.com/yetanotherzacotp/automated-obs-record-and-upload/releases). Simply download the `.exe` file and follow the steps below to set it up.
 
 ### Environment variables
-In order to run the executable, you must create a file named `.env` in the same folder as where you have the executable (Note for those who don't know: This is not a text file. 'env' is the extension. A simple way to make this file is to make a text file, rename it, and remove the `txt` as well). In this `.env` file, include the text below
+In order to run the executable, you must have a file named `.env` in the same folder as where you have the executable. You can either follow the prompts in the script, or manually make the file. (Note for those who don't know: This is not a text file. 'env' is the extension. A simple way to make this file is to make a text file, rename it, and remove the `txt` as well). In this `.env` file, include the text below
 ```
 OBS_WEBSOCKET_IP=
 OBS_WEBSOCKET_PORT=
