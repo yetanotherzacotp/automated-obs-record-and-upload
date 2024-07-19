@@ -2,7 +2,7 @@ import axios from 'axios'
 import https from 'https'
 import _ from 'lodash'
 
-import config from '../config.js'
+import config from './../config.js'
 
 export default async function getAllPlayers() {
   try {

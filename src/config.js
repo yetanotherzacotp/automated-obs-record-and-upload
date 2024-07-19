@@ -9,4 +9,7 @@ export default {
   obsWebsocketPort: _.get(process.env, 'OBS_WEBSOCKET_PORT'),
   obsWebsocketPassword: _.get(process.env, 'OBS_WEBSOCKET_PASSWORD'),
   sceneName: _.get(process.env, 'OBS_SCENE_NAME'),
+
+  // Misc
+  debug: _.get(process.env, 'DEBUG'),
 }

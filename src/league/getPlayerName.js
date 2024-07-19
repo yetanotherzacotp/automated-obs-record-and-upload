@@ -2,7 +2,8 @@ import axios from 'axios'
 import https from 'https'
 import _ from 'lodash'
 
-import config from '../config.js'
+import config from './../config.js'
+import ColorConsole from './../utils/colorConsole.js'
 
 export default async function getPlayerName() {
   try {
@@ -25,7 +26,7 @@ export default async function getPlayerName() {
     } else if (_.startsWith(error.code, 'Spectator mode')) {
       return undefined
     } else if (error.response && error.response.status === 404) {
-      console.log('Failed to obtain player data, likely in loading screen')
+      ColorConsole.debug('Failed to obtain player data, likely in loading screen')
       return undefined
     }
     throw error

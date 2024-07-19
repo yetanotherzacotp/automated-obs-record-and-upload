@@ -4,6 +4,7 @@ import 'dotenv/config'
 import fs from 'fs'
 
 import { firstTimeSetup } from './setup.js'
+import ColorConsole from './src/utils/colorConsole.js'
 
 import config from './src/config.js'
 
@@ -13,26 +14,37 @@ import getAllPlayers from './src/league/getAllPlayers.js'
 import connect from './src/obs/connect.js'
 import startRecord from './src/obs/startRecord.js'
 import stopRecord from './src/obs/stopRecord.js'
+import isRecordingActive from './src/obs/isRecording.js'
 
 const SCRIPT_VERSION = 'v0.0.4' // I wanted to just pull it from packagejson but no way I could get working played nicely with both entry points
 const TEN_SECONDS_IN_MS = 10000
+const COUNTER_SLEEP_LENGTH_IN_MS = 750
 const ERROR_LOG_FILE_PATH = 'errorlog.txt'
 
+const ALLOWED_RETRIES = 10
 let errorCounter = 0
 
 init().then(() => {
   process.exit()
 }).catch(() => {
-  if (errorCounter > 10) {
-    fs.appendFileSync(ERROR_LOG_FILE_PATH, 'Error count has exceeded 10, fully exiting to prevent infinite error loop',{encoding:'utf8',flag:'w'})
-    process.exit()
-  } else {
-    init() // try again
-  }
+  ColorConsole.warn(`${ColorConsole.BG_COLORS.RED}Script failed critically, attempting to restart. Will fully exit after ${ALLOWED_RETRIES - errorCounter} more tries`)
+  retry(init)
 })
 
+function retry (fn) {
+  return fn().catch(function(err) { 
+    if (errorCounter <= ALLOWED_RETRIES) {
+      fs.appendFileSync(ERROR_LOG_FILE_PATH, 'Error count has exceeded 10, fully exiting to prevent infinite error loop',{encoding:'utf8',flag:'w'})
+      process.exit()
+    } else {
+      ColorConsole.warn(`${ColorConsole.BG_COLORS.RED}Script failed critically, attempting to restart. Will fully exit after ${ALLOWED_RETRIES - errorCounter} more tries`)
+      return retry(fn)
+    }
+  })
+}
+
 async function init () {
-  console.log(`Running ${SCRIPT_VERSION} of automated-obs-record-and-upload script`)
+  ColorConsole.logCyanFG(`Running ${SCRIPT_VERSION} of automated-obs-record-and-upload script`)
   await checkOrCreateConfig()
   try {
     await main()
@@ -57,51 +69,67 @@ async function checkOrCreateConfig () {
     _.isNil(config.obsWebsocketPassword) ||
     _.isNil(config.sceneName)
   ) {
-    console.error('Failed to obtain required config. Please go through the following prompts to create your .env file')
+    ColorConsole.error('Failed to obtain required config. Please go through the following prompts to create your .env file')
     firstTimeSetup()
-    console.log('Script will auto exit. Please restart now that config is set')
+    ColorConsole.log('Script will auto exit. Please restart now that config is set')
     await sleep(TEN_SECONDS_IN_MS)
     process.exit()
   } else {
-    console.log('Config loaded!')
+    ColorConsole.log('Config loaded!')
   }
 }
 
+let playerChamp
+let opponentChamp
+
 async function main () {
   const obsClient = new OBSWebSocket()
-  console.log('Connecting to OBS websocket')
+  ColorConsole.log('Connecting to OBS websocket')
   try {
     await connect(obsClient, config.obsWebsocketIp, config.obsWebsocketPort, config.obsWebsocketPassword)
   } catch (error) {
-    console.warn('Waiting 30 seconds before retrying - please open OBS now...')
+    ColorConsole.warn('Waiting 30 seconds before retrying - please open OBS now...')
     await sleep(TEN_SECONDS_IN_MS * 3)
     throw error
   }
-  console.log('Connected. Beginning to wait for LoL game...')
+  ColorConsole.log('Connected. Beginning to wait for LoL game...')
 
-  let isRecording
-  let playerChamp
-  let opponentChamp
+  let checkCounter = 0
   while(true) {
     const playerName = await getPlayerName()
     const isActiveGame = !_.isNil(playerName)
+    const isRecording = await isRecordingActive(obsClient)
 
     if (!isActiveGame && !isRecording) {
-      console.log('No active game, waiting...')
-      await sleep(TEN_SECONDS_IN_MS)
+      if (checkCounter < 6) {
+        ColorConsole.logWaiting('No active game, waiting', checkCounter, ColorConsole.FG_COLORS.CYAN)
+        checkCounter++
+      } else {
+        ColorConsole.logInPlaceOverwrite('No active game, waiting', ColorConsole.FG_COLORS.CYAN)
+        checkCounter = 0
+      }
+      await sleep(COUNTER_SLEEP_LENGTH_IN_MS)
     } else if (!isActiveGame && isRecording){
-      console.log('Stopping recording, game has ended...')
+      ColorConsole.clearLine()
+      checkCounter = 0
+      ColorConsole.log('Stopping recording, game has ended...')
       const recordingPath = await stopRecord(obsClient, config.sceneName)
-      isRecording = false
       await sleep(5000)
       await rename(recordingPath, playerChamp, opponentChamp)
     } else if (isActiveGame && isRecording) {
-      console.log('Game is still going, continuing to record...')
-      await sleep(TEN_SECONDS_IN_MS)
+      if (checkCounter < 6) {
+        ColorConsole.logWaiting('Game is still going, continuing to record', checkCounter, ColorConsole.FG_COLORS.CYAN)
+        checkCounter++
+      } else {
+        ColorConsole.logInPlaceOverwrite('Game is still going, continuing to record', ColorConsole.FG_COLORS.CYAN)
+        checkCounter = 0
+      }
+      await sleep(COUNTER_SLEEP_LENGTH_IN_MS)
     } else if (isActiveGame && !isRecording) {
-      console.log('Detected game start, starting to record...')
+      ColorConsole.clearLine()
+      checkCounter = 0
+      ColorConsole.log('Detected game start, starting to record...')
       await startRecord(obsClient, config.sceneName)
-      isRecording = true
 
       const playerList = await getAllPlayers()
       const player = _.find(playerList, ['riotId', playerName])
@@ -115,6 +143,7 @@ async function main () {
       } else {
         opponentChamp = 'Unknown Champ'
       }
+      await sleep(5000) // sleep to prevent checking if OBS is recording too soon, otherwise OBS websocket call will error
     }
   }
 }
@@ -128,17 +157,18 @@ function sleep (timeoutLength) {
 async function rename (originalFilePath, playerChamp,  opponentChamp) {
   const now = new Date()
   let newRecordingName = `${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()} ${playerChamp} vs ${opponentChamp}`
+  const fileExtension = getFileExtension(originalFilePath)
   const pathToFile = _.chain(originalFilePath).split('/').dropRight(1).join('/').value()
 
   // handle multiple of the same matchup in the same day
-  if (await checkFileExists(`${pathToFile}/${newRecordingName}.mp4`)) {
+  if (await checkFileExists(`${pathToFile}/${newRecordingName}.${fileExtension}`)) {
     newRecordingName += await incrementMatchupCounter(pathToFile, newRecordingName)
   }
 
-  const newFilePath = `${pathToFile}/${newRecordingName}.mp4`
-  console.log(`renaming ${originalFilePath} to ${newFilePath}`)
+  const newFilePath = `${pathToFile}/${newRecordingName}.${fileExtension}`
+  ColorConsole.log(`renaming ${originalFilePath} to ${newFilePath}`)
   fs.renameSync(originalFilePath, newFilePath, function(err) {
-    if ( err ) console.log('ERROR: ' + err);
+    if ( err ) ColorConsole.warn('ERROR: ' + err);
   });
 }
 
@@ -148,10 +178,18 @@ async function checkFileExists(file) {
            .catch(() => false)
 }
 
+function getFileExtension(filepath) {
+  try {
+    return _.split(originalFilePath, '.')[1]
+  } catch (err) {
+    return 'mp4'
+  }
+}
+
 async function incrementMatchupCounter (pathToFile, recordingName) {
   let recordingCounter = 2 // start at two, since we check if we have a conflict before calling this func
   while (recordingCounter < 20) {
-    console.log(`Looping until a non-conflicting file name is found. Counter = ${recordingCounter}`)
+    ColorConsole.log(`Looping until a non-conflicting file name is found. Counter = ${recordingCounter}`)
     if (await checkFileExists(`${pathToFile}/${recordingName} Part ${recordingCounter}.mp4`)) {
       recordingCounter++
     } else {
@@ -159,6 +197,6 @@ async function incrementMatchupCounter (pathToFile, recordingName) {
     }
   }
 
-  console.log('Something went wrong, exiting...')
+  ColorConsole.error('Something went wrong, exiting...')
   throw new Error('Failed to find nonconflicting file name')
 }
