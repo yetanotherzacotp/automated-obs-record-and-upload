@@ -9,7 +9,7 @@ export default async function connect (obsClient, ip, port, password) {
     } = await obsClient.connect(`ws://${ip}:${port}`, password, {
       rpcVersion: 1
     })
-    ColorConsole.log(`Connected to server ${obsWebSocketVersion} (using RPC ${negotiatedRpcVersion})`)
+    ColorConsole.debug(`Connected to server ${obsWebSocketVersion} (using RPC ${negotiatedRpcVersion})`)
   } catch (error) {
     if (_.startsWith(error.message, 'connect ECONNREFUSED')) {
       ColorConsole.error('Failed to connect to OBS websocket. Ensure OBS is open, OBS websocket is enabled, and config passed into this app is correct')

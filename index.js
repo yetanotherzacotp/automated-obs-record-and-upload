@@ -189,7 +189,7 @@ function getFileExtension(filepath) {
 async function incrementMatchupCounter (pathToFile, recordingName) {
   let recordingCounter = 2 // start at two, since we check if we have a conflict before calling this func
   while (recordingCounter < 20) {
-    ColorConsole.log(`Looping until a non-conflicting file name is found. Counter = ${recordingCounter}`)
+    ColorConsole.debug(`Looping until a non-conflicting file name is found. Counter = ${recordingCounter}`)
     if (await checkFileExists(`${pathToFile}/${recordingName} Part ${recordingCounter}.mp4`)) {
       recordingCounter++
     } else {

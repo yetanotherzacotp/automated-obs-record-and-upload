@@ -5,6 +5,6 @@ export default async function isRecordingActive (obsClient) {
     const result = await obsClient.call('GetRecordStatus')
     return result.outputActive
   } catch (error) {
-    ColorConsole.log(error)
+    ColorConsole.error(error)
   }
 }
