@@ -17,7 +17,7 @@ import startRecord from './src/obs/startRecord.js'
 import stopRecord from './src/obs/stopRecord.js'
 import isRecordingActive from './src/obs/isRecording.js'
 
-const SCRIPT_VERSION = 'v0.0.5' // I wanted to just pull it from packagejson but no way I could get working played nicely with both entry points
+const SCRIPT_VERSION = 'v0.0.6' // I wanted to just pull it from packagejson but no way I could get working played nicely with both entry points
 const TEN_SECONDS_IN_MS = 10000
 const COUNTER_SLEEP_LENGTH_IN_MS = 750
 const ERROR_LOG_FILE_PATH = 'errorlog.txt'
