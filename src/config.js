@@ -12,4 +12,5 @@ export default {
 
   // Misc
   debug: _.get(process.env, 'DEBUG'),
+  defaultMaxRetries: 3
 }

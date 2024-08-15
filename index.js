@@ -5,6 +5,7 @@ import fs from 'fs'
 
 import { firstTimeSetup } from './setup.js'
 import ColorConsole from './src/utils/colorConsole.js'
+import retryWrapper from './src/utils/retry.js'
 
 import config from './src/config.js'
 
@@ -27,18 +28,21 @@ let errorCounter = 0
 init().then(() => {
   process.exit()
 }).catch(() => {
-  ColorConsole.warn(`${ColorConsole.BG_COLORS.RED}Script failed critically, attempting to restart. Will fully exit after ${ALLOWED_RETRIES - errorCounter} more tries`)
-  retry(init)
+  ColorConsole.logWhiteFG(`${ColorConsole.BG_COLORS.RED}Script failed critically, attempting to restart. Will fully exit after ${ALLOWED_RETRIES - errorCounter} more tries`)
+  retryScript(init)
 })
 
-function retry (fn) {
+function retryScript (fn) {
   return fn().catch(function(err) { 
-    if (errorCounter <= ALLOWED_RETRIES) {
-      fs.appendFileSync(ERROR_LOG_FILE_PATH, 'Error count has exceeded 10, fully exiting to prevent infinite error loop',{encoding:'utf8',flag:'w'})
+    if (errorCounter >= ALLOWED_RETRIES) {
+      const errorString = `${now.toString()} | Something unexpectedly went wrong: ${error.toString()}`
+      ColorConsole.error(errorString)
+      fs.appendFileSync(ERROR_LOG_FILE_PATH, `${errorString}\n`)
+      fs.appendFileSync(ERROR_LOG_FILE_PATH, 'Error count has exceeded 10, fully exiting to prevent infinite error loop\n')
       process.exit()
     } else {
-      ColorConsole.warn(`${ColorConsole.BG_COLORS.RED}Script failed critically, attempting to restart. Will fully exit after ${ALLOWED_RETRIES - errorCounter} more tries`)
-      return retry(fn)
+      ColorConsole.logWhiteFG(`${ColorConsole.BG_COLORS.RED}Script failed critically, attempting to restart. Will fully exit after ${ALLOWED_RETRIES - errorCounter} more tries`)
+      return retryScript(fn)
     }
   })
 }
@@ -51,11 +55,12 @@ async function init () {
   } catch (error) {
     const now = new Date()
     const errorString = `${now.toString()} | Something unexpectedly went wrong: ${error.toString()}`
+    ColorConsole.error(errorString)
 
     if (errorCounter === 0) {
-      fs.writeFileSync(ERROR_LOG_FILE_PATH, `ERROR LOGS FOR version ${SCRIPT_VERSION}`, {encoding: 'utf8', flag:'w' })
+      fs.writeFileSync(ERROR_LOG_FILE_PATH, `ERROR LOGS FOR version ${SCRIPT_VERSION}\n`)
     }
-    fs.appendFileSync(ERROR_LOG_FILE_PATH, errorString, {encoding: 'utf8', flag:'w' })
+    fs.appendFileSync(ERROR_LOG_FILE_PATH, `${errorString}\n`)
 
     errorCounter++
     throw error
@@ -96,9 +101,9 @@ async function main () {
 
   let checkCounter = 0
   while(true) {
-    const playerName = await getPlayerName()
+    const playerName = await retryWrapper(async () => getPlayerName(), 'getPlayerName')
     const isActiveGame = !_.isNil(playerName)
-    const isRecording = await isRecordingActive(obsClient)
+    const isRecording = await retryWrapper(async () => isRecordingActive(obsClient), 'isRecordingActive')
 
     if (!isActiveGame && !isRecording) {
       if (checkCounter < 6) {
@@ -113,9 +118,9 @@ async function main () {
       ColorConsole.clearLine()
       checkCounter = 0
       ColorConsole.log('Stopping recording, game has ended...')
-      const recordingPath = await stopRecord(obsClient, config.sceneName)
+      const recordingPath = await retryWrapper(() => stopRecord(obsClient, config.sceneName), 'stopRecord')
       await sleep(5000)
-      await rename(recordingPath, playerChamp, opponentChamp)
+      await retryWrapper(() => renameRecordingFile(recordingPath, playerChamp, opponentChamp), 'renameRecordingFile')
     } else if (isActiveGame && isRecording) {
       if (checkCounter < 6) {
         ColorConsole.logWaiting('Game is still going, continuing to record', checkCounter, ColorConsole.FG_COLORS.CYAN)
@@ -129,9 +134,9 @@ async function main () {
       ColorConsole.clearLine()
       checkCounter = 0
       ColorConsole.log('Detected game start, starting to record...')
-      await startRecord(obsClient, config.sceneName)
+      await retryWrapper(() => startRecord(obsClient, config.sceneName), 'startRecord')
 
-      const playerList = await getAllPlayers()
+      const playerList = await retryWrapper(() => getAllPlayers(), 'getAllPlayers')
       const player = _.find(playerList, ['riotId', playerName])
       playerChamp = player.championName
 
@@ -154,7 +159,7 @@ function sleep (timeoutLength) {
   });
 }
 
-async function rename (originalFilePath, playerChamp,  opponentChamp) {
+async function renameRecordingFile (originalFilePath, playerChamp,  opponentChamp) {
   const now = new Date()
   let newRecordingName = `${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()} ${playerChamp} vs ${opponentChamp}`
   const fileExtension = getFileExtension(originalFilePath)
