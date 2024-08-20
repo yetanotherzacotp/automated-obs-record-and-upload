@@ -122,6 +122,20 @@ async function main () {
       await sleep(5000)
       await retryWrapper(() => renameRecordingFile(recordingPath, playerChamp, opponentChamp), 'renameRecordingFile')
     } else if (isActiveGame && isRecording) {
+      // Find out what champ is being played, and the opponent champ. To be used in recording file name
+      if(_.isNil(playerChamp)) {
+        const playerList = await retryWrapper(() => getAllPlayers(), 'getAllPlayers')
+        const player = _.find(playerList, ['riotId', playerName])
+        playerChamp = _.isNil(player.championName) ? undefined : player.championName
+      }
+
+      if (_.isNil(opponentChamp)) {
+        const opponent = _.find(playerList, (person) => {
+          return person.team !== player.team && person.position === player.position
+        })
+        opponentChamp = _.isNil(opponent) ? opponent?.championName : 'Unknown Champ' // This used for practice tool. Shouldnt ever get this in a real game
+      }
+
       if (checkCounter < 6) {
         ColorConsole.logWaiting('Game is still going, continuing to record', checkCounter, ColorConsole.FG_COLORS.CYAN)
         checkCounter++
@@ -135,19 +149,6 @@ async function main () {
       checkCounter = 0
       ColorConsole.log('Detected game start, starting to record...')
       await retryWrapper(() => startRecord(obsClient, config.sceneName), 'startRecord')
-
-      const playerList = await retryWrapper(() => getAllPlayers(), 'getAllPlayers')
-      const player = _.find(playerList, ['riotId', playerName])
-      playerChamp = player.championName
-
-      const opponent = _.find(playerList, (person) => {
-        return person.team !== player.team && person.position === player.position
-      })
-      if (opponent) {
-        opponentChamp = opponent.championName
-      } else {
-        opponentChamp = 'Unknown Champ'
-      }
       await sleep(5000) // sleep to prevent checking if OBS is recording too soon, otherwise OBS websocket call will error
     }
   }
