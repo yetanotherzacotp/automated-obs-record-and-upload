@@ -33,8 +33,9 @@ init().then(() => {
 })
 
 function retryScript (fn) {
-  return fn().catch(function(err) { 
+  return fn().catch(function(error) { 
     if (errorCounter >= ALLOWED_RETRIES) {
+      const now = new Date()
       const errorString = `${now.toString()} | Something unexpectedly went wrong: ${error.toString()}`
       ColorConsole.error(errorString)
       fs.appendFileSync(ERROR_LOG_FILE_PATH, `${errorString}\n`)
@@ -123,17 +124,15 @@ async function main () {
       await retryWrapper(() => renameRecordingFile(recordingPath, playerChamp, opponentChamp), 'renameRecordingFile')
     } else if (isActiveGame && isRecording) {
       // Find out what champ is being played, and the opponent champ. To be used in recording file name
-      if(_.isNil(playerChamp)) {
-        const playerList = await retryWrapper(() => getAllPlayers(), 'getAllPlayers')
+      const playerList = await retryWrapper(() => getAllPlayers(), 'getAllPlayers')
+      if(_.isNil(playerChamp) || _.isNil(opponentChamp)) {
         const player = _.find(playerList, ['riotId', playerName])
         playerChamp = _.isNil(player.championName) ? undefined : player.championName
-      }
 
-      if (_.isNil(opponentChamp)) {
         const opponent = _.find(playerList, (person) => {
           return person.team !== player.team && person.position === player.position
         })
-        opponentChamp = _.isNil(opponent) ? opponent?.championName : 'Unknown Champ' // This used for practice tool. Shouldnt ever get this in a real game
+        opponentChamp = !_.isNil(opponent?.championName) ? opponent?.championName : 'Unknown Champ' // This used for practice tool. Shouldnt ever get this in a real game
       }
 
       if (checkCounter < 6) {
