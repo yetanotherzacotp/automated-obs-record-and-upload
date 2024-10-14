@@ -33,7 +33,7 @@ init().then(() => {
 })
 
 function retryScript (fn) {
-  return fn().catch(function(error) { 
+  return fn().catch(function(error) {
     if (errorCounter >= ALLOWED_RETRIES) {
       const now = new Date()
       const errorString = `${now.toString()} | Something unexpectedly went wrong: ${error.toString()}`
@@ -114,6 +114,8 @@ async function main () {
         ColorConsole.logInPlaceOverwrite('No active game, waiting', ColorConsole.FG_COLORS.CYAN)
         checkCounter = 0
       }
+      playerChamp = undefined
+      opponentChamp = undefined
       await sleep(COUNTER_SLEEP_LENGTH_IN_MS)
     } else if (!isActiveGame && isRecording){
       ColorConsole.clearLine()
@@ -122,6 +124,8 @@ async function main () {
       const recordingPath = await retryWrapper(() => stopRecord(obsClient, config.sceneName), 'stopRecord')
       await sleep(5000)
       await retryWrapper(() => renameRecordingFile(recordingPath, playerChamp, opponentChamp), 'renameRecordingFile')
+      playerChamp = undefined
+      opponentChamp = undefined
     } else if (isActiveGame && isRecording) {
       // Find out what champ is being played, and the opponent champ. To be used in recording file name
       const playerList = await retryWrapper(() => getAllPlayers(), 'getAllPlayers')
